@@ -17,6 +17,9 @@ import logging
 from typing import Optional, Tuple
 from langdetect import detect
 import langdetect.lang_detect_exception
+from gtts import gTTS # google text to speech api
+from playsound import playsound
+import os # to save the audio file
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -50,10 +53,10 @@ class RaspberryPiAutoTranslator:
         self.detection_confidence = 0.8
         
         # Calibrate microphone for ambient noise
-        self._calibrate_microphone()
+        #self._calibrate_microphone()
         
         logger.info(f"Auto-translator initialized with default target: {default_target_lang}")
-    
+    '''
     def _calibrate_microphone(self):
         """Calibrate microphone for ambient noise"""
         try:
@@ -63,7 +66,7 @@ class RaspberryPiAutoTranslator:
                 logger.info("Microphone calibrated")
         except Exception as e:
             logger.error(f"Microphone calibration failed: {e}")
-    
+    '''
     def _detect_language(self, text: str) -> Optional[str]:
         """
         Detect the language of the input text
@@ -159,8 +162,16 @@ class RaspberryPiAutoTranslator:
         """
         try:
             logger.info(f"Speaking: {text}")
-            
+            speak = gTTS(text=text, lang=lang, slow=False)
+
+# Using save() method to save the translated speech in capture_voice.mp3
+            speak.save("audioCap.mp3")
+
+# Using OS module to run the translated voice.
+            playsound('audioCap.mp3')
+            os.remove('audioCap.mp3')
             # Try to set voice based on language if available
+            """
             if lang:
                 voices = self.tts_engine.getProperty('voices')
                 for voice in voices:
@@ -169,7 +180,8 @@ class RaspberryPiAutoTranslator:
                         break
             
             self.tts_engine.say(text)
-            self.tts_engine.runAndWait()
+            #self.tts_engine.runAndWait()
+            """
         except Exception as e:
             logger.error(f"Text-to-speech error: {e}")
     
@@ -179,7 +191,9 @@ class RaspberryPiAutoTranslator:
     
     def _listen_continuously(self):
         """Continuously listen for audio input"""
+      
         while self.is_listening:
+            print("chegouemthread1")
             try:
                 with self.microphone as source:
                     # Listen for audio with timeout
@@ -188,8 +202,11 @@ class RaspberryPiAutoTranslator:
                 query = self.recognizer.recognize_google(audio, language='en-in')
                 print(f"The User said {query}\n")
                 time.sleep(0.1)
+                
             except sr.WaitTimeoutError:
+                print("waittimeerror")
                 pass  # Normal timeout, continue listening
+                
             except Exception as e:
                 logger.error(f"Listening error: {e}")
                 time.sleep(0.1)
@@ -234,8 +251,9 @@ class RaspberryPiAutoTranslator:
                             print("Could not detect language for translation")
                             print("-" * 50)
                 
-                time.sleep(0.1)
+                
             except queue.Empty:
+                print("vazio")
                 continue
             except Exception as e:
                 logger.error(f"Audio processing error: {e}")
@@ -251,11 +269,12 @@ class RaspberryPiAutoTranslator:
         self.is_listening = True
         
         # Start listening and processing threads
+        
         listen_thread = threading.Thread(target=self._listen_continuously, daemon=True)
         process_thread = threading.Thread(target=self._process_audio_queue, daemon=True)
-        
-        listen_thread.start()
         process_thread.start()
+        listen_thread.start()
+        
         
         try:
             # Keep main thread alive
